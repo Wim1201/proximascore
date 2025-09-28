@@ -15,6 +15,43 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
+def is_place_relevant(place, category):
+    """Check of een place relevant is voor de gegeven categorie"""
+    place_name = place.get('name', '').lower()
+    place_types = place.get('types', [])
+    rating = place.get('rating', 0)
+    user_ratings_total = place.get('user_ratings_total', 0)
+    
+    # Minimum kwaliteit eisen
+    if rating > 0 and rating < 3.0:
+        return False
+    
+    if user_ratings_total > 0 and user_ratings_total < 3:
+        return False
+    
+    # Categorie-specifieke relevantie checks
+    if category == 'apotheek':
+        relevant_words = ['apotheek', 'pharmacy', 'apotheke', 'farmacie']
+        return any(word in place_name for word in relevant_words)
+    
+    elif category == 'huisarts':
+        relevant_words = ['huisarts', 'dokter', 'arts', 'doctor', 'medisch', 'gezondheid', 'fysi']
+        return any(word in place_name for word in relevant_words)
+    
+    elif category == 'basisschool':
+        relevant_words = ['school', 'onderwijs', 'basisschool', 'elementary']
+        irrelevant_words = ['rijschool', 'dansschool', 'muziekschool', 'driving']
+        has_relevant = any(word in place_name for word in relevant_words)
+        has_irrelevant = any(word in place_name for word in irrelevant_words)
+        return has_relevant and not has_irrelevant
+    
+    elif category == 'sportfaciliteiten':
+        relevant_words = ['gym', 'sport', 'fitness', 'zwembad', 'tennis', 'voetbal', 'hockey']
+        return any(word in place_name for word in relevant_words)
+    
+    # Voor andere categorieën: altijd relevant (voorlopig)
+    return True
+
 
 # Laad environment variabelen
 load_dotenv('.env')
@@ -69,37 +106,37 @@ ALLE_VOORZIENINGEN = {
     'basisschool': {
         'google_types': ['primary_school', 'school'],
         'display_name': 'Basisschool',
-        'active': False
+        'active': True
     },
     'apotheek': {
         'google_types': ['pharmacy'],
         'display_name': 'Apotheek',
-        'active': False
+        'active': True
     },
     'sportfaciliteiten': {
-        'google_types': ['gym', 'stadium', 'bowling_alley', 'swimming_pool'],
+        'google_types': ['gym', 'stadium', 'bowling_alley'],
         'display_name': 'Sportfaciliteiten',
-        'active': False
+        'active': True
     },
     'horeca': {
         'google_types': ['restaurant', 'bar', 'cafe', 'meal_takeaway'],
         'display_name': 'Horeca',
-        'active': False
+        'active': True
     },
     'werkgelegenheid': {
-        'google_types': ['shopping_mall', 'store'],
+        'google_types': ['store', 'establishment'],
         'display_name': 'Werkgelegenheid',
-        'active': False
+        'active': True
     },
     'cultuur': {
-        'google_types': ['library', 'museum', 'movie_theater', 'art_gallery'],
+        'google_types': ['library', 'museum', 'movie_theater', 'art_gallery', 'tourist_attraction'],
         'display_name': 'Cultuur',
-        'active': False
+        'active': True
     },
     'groenvoorziening': {
         'google_types': ['park'],
         'display_name': 'Groenvoorziening',
-        'active': False
+        'active': True
     }
 }
 
@@ -376,6 +413,7 @@ class ProximaScoreCalculator:
                     
                     for place in place_results:
                         if place.get('business_status') != 'CLOSED_PERMANENTLY':
+                            # Bereken distance eerst
                             distance = self.calculate_distance(
                                 lat, lng,
                                 place['geometry']['location']['lat'],
@@ -393,9 +431,25 @@ class ProximaScoreCalculator:
                             places.append(place_info)
                             print(f"Toegevoegd: {place['name']} ({round(distance)}m)")
             
+            # Remove duplicates gebaseerd op naam en locatie
+            unique_places = []
+            seen_names = set()
+            
+            for place in places:
+                # Normalize naam voor duplicate detection
+                normalized_name = place['name'].lower().strip()
+                location_key = f"{place['lat']:.6f},{place['lng']:.6f}"
+                unique_key = f"{normalized_name}_{location_key}"
+                
+                if unique_key not in seen_names:
+                    unique_places.append(place)
+                    seen_names.add(unique_key)
+                else:
+                    print(f"⚠ Duplicate weggehaald: {place['name']}")
+            
             # Sorteer op afstand, neem dichtstbijzijnde 3
-            places.sort(key=lambda x: x['distance_meters'])
-            places = places[:3]
+            unique_places.sort(key=lambda x: x['distance_meters'])
+            places = unique_places[:3]
             
             print(f"Totaal {len(places)} voorzieningen gevonden voor {category}")
             for place in places:

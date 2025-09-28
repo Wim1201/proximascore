@@ -1,1 +1,10 @@
 .env
+*.pyc
+__pycache__/
+data/proximascore.db
+app_backup_*.py
+.env
+*.pyc
+__pycache__/
+data/
+app_backup_*.py

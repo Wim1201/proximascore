@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProximaScore - Nederlandse Bereikbaarheidscalculator</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ProximaScore</h1>
+            <p>Nederlandse Bereikbaarheidscalculator</p>
+            <div class="version-info">Stap 1: Basis implementatie - 5 profielen actief</div>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <h2>Bereken jouw ProximaScore</h2>
+                
+                <form id="proximaForm">
+                    <div class="form-group">
+                        <label for="address">Nederlands adres:</label>
+                        <input 
+                            type="text" 
+                            id="address" 
+                            name="address" 
+                            placeholder="Bijvoorbeeld: Markt 1, Dongen"
+                            required
+                        >
+                        <small>Voer een volledig adres in: straat + huisnummer + plaats</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profile">Profiel:</label>
+                        <select id="profile" name="profile">
+                            <option value="">Profielen laden...</option>
+                        </select>
+                        <small>Kies het profiel dat het beste bij jouw situatie past</small>
+                    </div>
+
+                    <button type="submit" id="calculateBtn">
+                        Bereken ProximaScore
+                    </button>
+                </form>
+            </section>
+
+            <section class="loading-section" id="loadingSection" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p>Berekening van ProximaScore...</p>
+                <small>Dit kan 10-15 seconden duren vanwege Google API calls</small>
+            </section>
+
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <h2>Jouw ProximaScore</h2>
+                
+                <div class="score-display">
+                    <div class="score-circle">
+                        <span id="totalScore">--</span>
+                        <small>/ 100</small>
+                    </div>
+                    <div class="score-info">
+                        <h3 id="scoreLocation">--</h3>
+                        <p id="scoreProfile">--</p>
+                    </div>
+                </div>
+
+                <div class="categories-breakdown">
+                    <h3>Bereikbaarheid per voorziening</h3>
+                    <div id="categoriesContainer">
+                        <!-- Dynamisch gevuld via JavaScript -->
+                    </div>
+                </div>
+
+                <div class="technical-info">
+                    <h4>Technische details</h4>
+                    <div id="technicalDetails">
+                        <!-- Coördinaten, berekening tijd, etc. -->
+                    </div>
+                </div>
+            </section>
+
+            <section class="error-section" id="errorSection" style="display: none;">
+                <div class="error-message">
+                    <h3>Fout bij berekening</h3>
+                    <p id="errorMessage">--</p>
+                    <button onclick="resetForm()">Probeer opnieuw</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="footer-info">
+                <p>ProximaScore v1.0 - Stap 1 implementatie</p>
+                <p>Gegevens via Google Maps API | Alleen voor test doeleinden</p>
+            </div>
+            
+            <div class="api-status">
+                <h4>Systeem status</h4>
+                <div id="systemStatus">
+                    <div class="status-item">
+                        <span class="status-label">Backend:</span>
+                        <span class="status-value" id="backendStatus">Controleren...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Google API:</span>
+                        <span class="status-value" id="googleStatus">Controleren...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Actieve voorzieningen:</span>
+                        <span class="status-value" id="activeCategories">--</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Actieve profielen:</span>
+                        <span class="status-value" id="activeProfiles">--</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // ProximaScore Frontend JavaScript
+        
+        // Globale variabelen
+        let currentProfiles = {};
+        
+        // Initialisatie bij pagina load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProfiles();
+            checkSystemHealth();
+            setupForm();
+        });
+        
+        // Laad beschikbare profielen
+        async function loadProfiles() {
+            try {
+                const response = await fetch('/api/profiles');
+                const profiles = await response.json();
+                currentProfiles = profiles;
+                
+                const profileSelect = document.getElementById('profile');
+                profileSelect.innerHTML = '';
+                
+                // Voeg alle profielen toe aan dropdown
+                for (const [key, profile] of Object.entries(profiles)) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = profile.display_name;
+                    profileSelect.appendChild(option);
+                }
+                
+                // Zet eerste profiel als default
+                if (Object.keys(profiles).length > 0) {
+                    profileSelect.value = Object.keys(profiles)[0];
+                }
+                
+                console.log('Profielen geladen:', Object.keys(profiles));
+                
+            } catch (error) {
+                console.error('Fout bij laden profielen:', error);
+                const profileSelect = document.getElementById('profile');
+                profileSelect.innerHTML = '<option value="algemeen">Algemeen profiel (fallback)</option>';
+            }
+        }
+        
+        // Setup form event handlers
+        function setupForm() {
+            const form = document.getElementById('proximaForm');
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const address = document.getElementById('address').value.trim();
+                const profile = document.getElementById('profile').value;
+                
+                if (!address) {
+                    alert('Voer een adres in');
+                    return;
+                }
+                
+                if (!profile) {
+                    alert('Selecteer een profiel');
+                    return;
+                }
+                
+                await calculateProximaScore(address, profile);
+            });
+        }
+        
+        // Bereken ProximaScore
+        async function calculateProximaScore(address, profile) {
+            try {
+                showLoading();
+                
+                const response = await fetch('/api/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        address: address,
+                        profile: profile
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    showError(result.error);
+                } else {
+                    showResults(result);
+                }
+                
+            } catch (error) {
+                console.error('Fout bij berekening:', error);
+                showError('Netwerkfout: ' + error.message);
+            }
+        }
+        
+        // Toon loading state
+        function showLoading() {
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'none';
+        }
+        
+        // Toon resultaten
+        function showResults(result) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Totale score
+            document.getElementById('totalScore').textContent = result.total_score;
+            document.getElementById('scoreLocation').textContent = result.address;
+            document.getElementById('scoreProfile').textContent = result.profile_display;
+            
+            // Categorieën breakdown
+            const categoriesContainer = document.getElementById('categoriesContainer');
+            categoriesContainer.innerHTML = '';
+            
+            for (const [key, category] of Object.entries(result.categories)) {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'category-item';
+                
+                const closestPlace = category.places.length > 0 ? category.places[0] : null;
+                const closestInfo = closestPlace ? 
+                    `${closestPlace.name} (${closestPlace.distance_meters}m)` : 
+                    'Geen voorzieningen gevonden';
+                
+                categoryDiv.innerHTML = `
+                    <div class="category-header">
+                        <span class="category-name">${category.display_name}</span>
+                        <span class="category-score">${category.score}/100</span>
+                    </div>
+                    <div class="category-details">
+                        <span class="category-weight">Gewicht: ${category.weight}%</span>
+                        <span class="category-closest">Dichtstbij: ${closestInfo}</span>
+                    </div>
+                `;
+                
+                categoriesContainer.appendChild(categoryDiv);
+            }
+            
+            // Technische details
+            const technicalDetails = document.getElementById('technicalDetails');
+            technicalDetails.innerHTML = `
+                <p><strong>Coördinaten:</strong> ${result.location.lat.toFixed(6)}, ${result.location.lng.toFixed(6)}</p>
+                <p><strong>Berekend op:</strong> ${new Date(result.calculated_at).toLocaleString('nl-NL')}</p>
+                <p><strong>Versie:</strong> ${result.version}</p>
+            `;
+        }
+        
+        // Toon error
+        function showError(message) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+        }
+        
+        // Reset form
+        function resetForm() {
+            document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('address').focus();
+        }
+        
+        // Check system health
+        async function checkSystemHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const health = await response.json();
+                
+                document.getElementById('backendStatus').textContent = health.status;
+                document.getElementById('googleStatus').textContent = 
+                    health.google_api_configured ? 'Geconfigureerd' : 'Niet geconfigureerd';
+                document.getElementById('activeCategories').textContent = health.active_categories;
+                document.getElementById('activeProfiles').textContent = health.active_profiles;
+                
+            } catch (error) {
+                console.error('Health check failed:', error);
+                document.getElementById('backendStatus').textContent = 'Offline';
+                document.getElementById('googleStatus').textContent = 'Onbekend';
+            }
+        }
+    </script>
+</body>
+</html>

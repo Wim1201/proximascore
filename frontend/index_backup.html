@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProximaScore - Nederlandse Bereikbaarheidscalculator</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ProximaScore</h1>
+            <p>Nederlandse Bereikbaarheidscalculator</p>
+            <div class="version-info">Stap 1: Basis implementatie</div>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <h2>Bereken jouw ProximaScore</h2>
+                
+                <form id="proximaForm">
+                    <div class="form-group">
+                        <label for="address">Nederlands adres:</label>
+                        <input 
+                            type="text" 
+                            id="address" 
+                            name="address" 
+                            placeholder="Bijvoorbeeld: Markt 1, Dongen"
+                            required
+                        >
+                        <small>Voer een volledig adres in: straat + huisnummer + plaats</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profile">Profiel:</label>
+                        <select id="profile" name="profile">
+                            <option value="algemeen">Algemeen profiel</option>
+                        </select>
+                        <small>Meer profielen komen beschikbaar in latere stappen</small>
+                    </div>
+
+                    <button type="submit" id="calculateBtn">
+                        Bereken ProximaScore
+                    </button>
+                </form>
+            </section>
+
+            <section class="loading-section" id="loadingSection" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p>Berekening van ProximaScore...</p>
+                <small>Dit kan 10-15 seconden duren vanwege Google API calls</small>
+            </section>
+
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <h2>Jouw ProximaScore</h2>
+                
+                <div class="score-display">
+                    <div class="score-circle">
+                        <span id="totalScore">--</span>
+                        <small>/ 100</small>
+                    </div>
+                    <div class="score-info">
+                        <h3 id="scoreLocation">--</h3>
+                        <p id="scoreProfile">--</p>
+                    </div>
+                </div>
+
+                <div class="categories-breakdown">
+                    <h3>Bereikbaarheid per voorziening</h3>
+                    <div id="categoriesContainer">
+                        <!-- Dynamisch gevuld via JavaScript -->
+                    </div>
+                </div>
+
+                <div class="technical-info">
+                    <h4>Technische details</h4>
+                    <div id="technicalDetails">
+                        <!-- Coördinaten, berekening tijd, etc. -->
+                    </div>
+                </div>
+            </section>
+
+            <section class="error-section" id="errorSection" style="display: none;">
+                <div class="error-message">
+                    <h3>Fout bij berekening</h3>
+                    <p id="errorMessage">--</p>
+                    <button onclick="resetForm()">Probeer opnieuw</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="footer-info">
+                <p>ProximaScore v1.0 - Stap 1 implementatie</p>
+                <p>Gegevens via Google Maps API | Alleen voor test doeleinden</p>
+            </div>
+            
+            <div class="api-status">
+                <h4>Systeem status</h4>
+                <div id="systemStatus">
+                    <div class="status-item">
+                        <span class="status-label">Backend:</span>
+                        <span class="status-value" id="backendStatus">Controleren...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Google API:</span>
+                        <span class="status-value" id="googleStatus">Controleren...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Actieve voorzieningen:</span>
+                        <span class="status-value" id="activeCategories">--</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="static/js/app.js"></script>
+</body>
+</html>

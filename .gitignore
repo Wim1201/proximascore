@@ -8,3 +8,4 @@ app_backup_*.py
 __pycache__/
 data/
 app_backup_*.py
+data/proximascore.db
